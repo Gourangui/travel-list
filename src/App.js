@@ -8,17 +8,35 @@ import { useState } from 'react';
 ]; */
 
 function App() {
-  const [items, setItems] = React.useState([]);
-  function handleAddItems(newItem){
+  const [items, setItems] = useState([]);
+
+  function handleAddItem(newItem){
     setItems((items) => [...items, newItem]);
+  }
+
+  function handleClearList(){
+    const confirmed = window.confirm('Are you sure you want to delete all items?');
+    if (confirmed) setItems((items) => []);
+  }
+
+  function handleRemoveItem(id){
+    setItems((items) => items.filter((item) => item.id !== id));
+  }
+
+  function handleToggleItem(id){
+    setItems((items) => 
+      items.map((item) => 
+        item.id === id ? {...item, packed: !item.packed} 
+        : item
+    ));
   }
 
   return (
     <div className="app">
       <Logo />
-      <Form onAddItems={handleAddItems} />
-      <PackagingList items={items} />
-      <Stats />
+      <Form onAddItems={handleAddItem} />
+      <PackagingList items={items} onDeleteItem={handleRemoveItem} onToggleItem={handleToggleItem} onClearItems={handleClearList}/>
+      <Stats items={items}/>
     </div>
   );
 }
@@ -33,8 +51,8 @@ function Logo(){
 
 /* add item */
 function Form({ onAddItems }){
-  const [description, setDescription] = React.useState('');
-  const [quantity, setQuantity] = React.useState(1);
+  const [description, setDescription] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   function handleSubmit(e){
     e.preventDefault();
@@ -66,40 +84,76 @@ function Form({ onAddItems }){
       <input type='text' placeholder='Item...' value={description} onChange={(e) => {
         setDescription(e.target.value);
       }}/>
+      <button type='submit'>Add</button>
     </form>
   )
 }
 
 /* list of items */
-function PackagingList({items}){
+function PackagingList({items, onDeleteItem, onToggleItem, onClearItems}){
+  const [sortBy, setSortBy] = useState('input');
+
+  let sortedItems;
+
+  if (sortBy === 'input') sortedItems = items;
+
+  if (sortBy === 'description') 
+    sortedItems = items.slice()
+    .sort((a, b) => a.description.localeCompare(b.description));
+
+  if (sortBy === 'packed')
+    sortedItems = items.slice()
+    .sort((a, b) => a.packed - b.packed);
+
   return (
     <div className='list'>
       <ul>
-        {items.map(item => (
-          <Item key={item.id} item={item} />
+        {sortedItems.map(item => (
+          <Item key={item.id} item={item} onDeleteItem={onDeleteItem} onToggleItem={onToggleItem} />
         ))}
       </ul>
+      <div className='actions'>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <option value='input'>Sort by input order</option>
+          <option value='description'>sort by description</option>
+          <option value='packed'>Sort by packed status</option>
+        </select>
+        <button onClick={onClearItems}>Clear list</button>
+      </div>
     </div>
   )
 }
 
-function Item({ item }){
+function Item({ item, onDeleteItem, onToggleItem }){
   return (
     <li>
       <input 
-      type='checkbox' 
-      checked={item.packed} 
-      onClick={item.packed ? {textDecoration: "line-through"} : {}}/>
-      <span>{item.quantity} {item.description}</span>
-      <button>❌</button>
+        type='checkbox' 
+        checked={item.packed}
+        onClick={() => onToggleItem(item.id)}/>
+      <span style={item.packed ? {textDecoration: "line-through"} : {}}>
+        {item.quantity} {item.description}
+      </span>
+      <button onClick={() => onDeleteItem(item.id)}>❌</button>
     </li>
   )
 }
 
-function Stats(){
+function Stats({items}){
+  if (!items.length) return <footer className='stats'>
+    <p><em>Start adding some items to your packing list 🚀</em></p>
+  </footer>;
+
+  const numItems = items.length;
+  const numPackedItems = items.filter((item) => item.packed).length;
+  const percentage = numItems > 0 ? Math.round(numPackedItems / numItems * 100) : 0;
+
   return (
     <footer className='stats'>
-      <em>💼 You have X items in your list, and you already packed Y (Y%) items.</em>
+      <em>
+        {percentage === 100 ? 'You got everything! Ready to go!' 
+        : `💼 You have ${numItems} items in your list, and you already packed ${numPackedItems} (${percentage}%) items.!`}
+      </em>
     </footer>
   )
 }
